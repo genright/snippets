@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# voltages
+sensors | grep 'Voltage' | sed 's/+//g' | awk '{print $1":"$3}' | tr '\n' ' '
+
+# cpu temps
+sensors | grep Core | sed 's/Core /CPU_/g' | cut -d. -f1 | sed 's/ //g' | sed 's/+//' | tr '\n' ' '
+
+#motherboard temps
+echo -n CPU_Die: && sensors | grep 'CPU Temp' | cut -d. -f1 | cut -d+ -f2 | tr '\n' ' '
+echo -n Chipset: && sensors | grep 'MB Temp' | cut -d. -f1 | cut -d+ -f2 | tr '\n' ' '
+
+
+# fan speeds
+sensors | grep FAN | sed 's/PWR FAN/PWR_FAN/' | sed 's/:/: /g' | awk '{print $1":"$4}' | tr '\n' ' ' && echo
+

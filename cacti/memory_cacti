@@ -1,0 +1,2 @@
+#!/bin/bash
+free | cut -d: -f2 | xargs echo -n | awk '{print "total:"$7" usedtotal:"$8" free:"$9" shared:"$10" buffers:"$11" cached:"$12" used:"$13" swaptot:"$15" swapused:"$16" swapfree:"$17}'
