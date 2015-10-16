@@ -1,0 +1,20 @@
+# Show serial and capacity for all drives
+for i in /dev/sd?; do echo "$i "; smartctl -d ata -a  $i | egrep "Serial N|Capacity" || echo; done
+
+
+# rescan scsi bus for hotswap especially
+# dont forget to unmount swap before pulling a drive
+{
+ for H in /sys/class/scsi_host/*; do
+    echo -n "rescanning $H... " && echo "- - -" > $H/scan && echo "OK" || echo "FAILED"
+ done
+} 
+
+for i in sd[abc]
+do
+  echo 1 > /sys/block/$i/device/queue_depth
+done
+
+# deletes drives
+echo 1 > /sys/block/$DISK/device/delete
+
