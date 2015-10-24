@@ -1,0 +1,4 @@
+# directly find folders used by apache processes
+for i in $(ps auxf | grep -v root | awk '/apache2/ {print $2}'); do lsof -p $i | grep cwd; done
+
+
