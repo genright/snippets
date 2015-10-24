@@ -80,6 +80,13 @@ for i in /dev/md? /dev/sd?; do blockdev --getra $i; done
 # speed test 
 echo 3 > /proc/sys/vm/drop_caches; for i in 1 2 3 4 5; do dd if=/dev/zero of=speedtest bs=1M count=1024 conv=fsync; done 2>&1 | awk '/copied/ {sum+=$8} END {print "average = "sum/5}'
 
+# write ones instead  of zeros to a file
+{
+counts="350"
+bsize="1M"
+tr '\000' '\377' < /dev/zero | dd iflag=fullblock of=myfiledev bs="${bsize}" count="${counts}"
+}
+
 
 lvcreate --snapshot --name ${snapshot} ${lv} --size ${snapshot_size}b
 
