@@ -1,6 +1,16 @@
 # Show serial and capacity for all drives
 for i in /dev/sd?; do echo "$i "; smartctl -d ata -a  $i | egrep "Serial N|Capacity" || echo; done
 
+# find which ata dev is mapped to a drive id (eg ata1 to sda)
+{
+for i in $(ls -a /dev/sd?); do 
+  ata=$(basename $i)
+  echo "drive ${ata} maps to $(readlink /sys/block/${ata})"
+  smartctl -d ata -a $i | egrep 'Serial|Capacity' || echo;
+  echo
+done
+}
+
 
 # rescan scsi bus for hotswap especially
 # dont forget to unmount swap before pulling a drive
@@ -10,11 +20,68 @@ for i in /dev/sd?; do echo "$i "; smartctl -d ata -a  $i | egrep "Serial N|Capac
  done
 } 
 
+# disable ncq, may help performance in some cases
+# https://ata.wiki.kernel.org/index.php/Libata_FAQ#Enabling.2C_disabling_and_checking_NCQ
 for i in sd[abc]
 do
   echo 1 > /sys/block/$i/device/queue_depth
 done
 
-# deletes drives
+
+# deletes drives, make sure drive is completly unsed first
 echo 1 > /sys/block/$DISK/device/delete
+
+# may also use this to spin a drive down.
+echo offline > /sys/block/$DISK/device/state
+ 
+
+# scan a drive for bad sectors and try to fix them? ymmv
+# http://serverfault.com/questions/461203/how-to-use-hdparm-to-fix-a-pending-sector/641135#641135
+{
+baddrive=/dev/sdb
+badsect=1
+smartctl -t select,${badsect}-max ${baddrive} 2>&1 >> /dev/null
+while true; do
+  echo Testing from LBA $badsect
+
+  echo "Waiting for test to stop (each dot is 5 sec)"
+  while [ "$(smartctl -l selective ${baddrive} | awk '/^ *1/{print substr($4,1,9)}')" != "Completed" ]; do
+    echo -n .
+    sleep 5
+  done
+  echo
+
+  badsect=$(smartctl -d ata -a ${baddrive} | awk '/# 1  Selective offline   Completed: read failure/ {print $10}')
+  [ $badsect = "-" ] && exit 0
+
+  echo Attempting to fix sector $badsect on $baddrive
+  hdparm --read-sector ${badsect} $baddrive
+  echo Continuning test
+
+  smartctl -t select,next ${baddrive} 2>&1 >> /dev/null
+done
+}
+
+
+# check mbr for grub
+for i in /dev/sd?; do dd if=$i bs=512 count=1 2>&1 | strings | grep -qc GRUB && echo "$i GRUB present in mbr"; done
+
+
+# for raid6, speed up rebuilds
+echo 8192 > /sys/block/md2/md/stripe_cache_size
+
+
+#set read ahead for all sata and md devices to match
+xm sched-credit -d0 -w512
+for i in /dev/md? /dev/sd?; do blockdev --setra 4096 $i; done
+for i in /dev/md? /dev/sd?; do blockdev --getra $i; done
+
+
+# speed test 
+echo 3 > /proc/sys/vm/drop_caches; for i in 1 2 3 4 5; do dd if=/dev/zero of=speedtest bs=1M count=1024 conv=fsync; done 2>&1 | awk '/copied/ {sum+=$8} END {print "average = "sum/5}'
+
+
+lvcreate --snapshot --name ${snapshot} ${lv} --size ${snapshot_size}b
+
+
 
