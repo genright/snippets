@@ -67,8 +67,62 @@ done
 for i in /dev/sd?; do dd if=$i bs=512 count=1 2>&1 | strings | grep -qc GRUB && echo "$i GRUB present in mbr"; done
 
 
-# for raid6, speed up rebuilds
-echo 8192 > /sys/block/md2/md/stripe_cache_size
+function tweak_disk_scheduler () {
+  echo "  Setting ideal kernel scheduler by drive type"
+  local i
+  for i in /dev/sd?; do
+    if [ "$(smartctl -d ata -a $i | grep -c 'SSD')" -ne "0" ]; then
+      echo "  - ${i##*/} seems to be an ssd, using deadline"
+      echo deadline > /sys/block/${i##*/}/queue/scheduler
+    else
+      echo "  - ${i##*/} is probably a spindle drive, defaulting to cfq"
+      echo cfq > /sys/block/${i##*/}/queue/scheduler
+    fi
+  done
+}
+
+# for an md, use a multiple of the disk ra. ideally about 4 times. cater to 4k drives
+function tweak_read_ahead () {
+  echo "  Setting disk and md block read ahead size for consistency..."
+  local i
+  for i in /dev/sd?; do
+    echo -n "  - $i was $(blockdev --getra $i), now "
+    blockdev --setra 4096 $i
+    blockdev --getra $i
+  done
+  for i in /dev/md?; do
+    echo -n "  - $i was $(blockdev --getra $i), now "
+    blockdev --setra 16384 $i
+    blockdev --getra $i
+  done
+}
+
+# Tweak stripe cache on raid6 arrays, speeds up things significantly, at the
+# expense of some RAM
+#  stripe_cache_size * block some * number of disks
+#  = 16384 * 4k * 4 (active disks) = 256MB of RAM
+# Avoid setting to high on hosts that have limited memory, but still do better 
+# than default. We typically only have one raid6 per server, this might be a 
+# bit of a hog else
+function tweak_raid6 () {
+  echo "  Setting raid6 array stripe caches, for better performance"
+  local rnew=16384
+  local rsize=0
+  local i
+  local memtot=$(free -ob | awk '/^Mem:/ {print $2}')
+
+  if [ ${memtot} -lt 1000000000 ]; then
+    rnew=2048
+  elif [ ${memtot} -lt 2000000000 ]; then
+    rnew=8192
+  fi
+  for i in $(grep active /proc/mdstat | awk '/raid6/ {print $1}'); do 
+    rsize=$(cat /sys/block/${i}/md/stripe_cache_size)
+    if [ ${rsize} -lt ${rnew} ]; then continue; fi
+    echo ${rnew} > /sys/block/${i}/md/stripe_cache_size
+    echo "  - ${i} : was ${rsize}, now $(cat /sys/block/${i}/md/stripe_cache_size)"
+  done
+}
 
 
 #set read ahead for all sata and md devices to match
