@@ -14,3 +14,7 @@ ipmitool lan set 1 defgw ipaddr 1.2.3.1
 ipmitool lan print
 service ipmi stop
 
+
+# sed pattern to comment a line
+sed -e '/matchtext/ s/^#*/#/' -i $file
+
