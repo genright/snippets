@@ -67,6 +67,7 @@ done
 for i in /dev/sd?; do dd if=$i bs=512 count=1 2>&1 | strings | grep -qc GRUB && echo "$i GRUB present in mbr"; done
 
 
+# improve small caches
 function tweak_disk_scheduler () {
   echo "  Setting ideal kernel scheduler by drive type"
   local i
@@ -78,6 +79,28 @@ function tweak_disk_scheduler () {
       echo "  - ${i##*/} is probably a spindle drive, defaulting to cfq"
       echo cfq > /sys/block/${i##*/}/queue/scheduler
     fi
+  done
+}
+
+
+# Tune timeouts...
+# Phil Turmel, Wed, 4 Nov 2015 08:13:06 -0
+# http://www.spinics.net/lists/raid/msg50295.html
+function tweak_timeouts() {
+  # This iterates through all sata drives, whether raid or not.
+  for i in /dev/sd? ; do
+    if smartctl -l scterc,70,70 $i > /dev/null ; then
+      echo -n $i " is good "
+      # "Good" clearly means the device has ERC support 
+      # and the default timeout is OK
+    else
+      echo 180 > /sys/block/${i/\/dev\/}/device/timeout
+      echo -n $i " is  bad "
+      # "Bad" means it doesn't support ERC, so the timeout is 
+      # set to the work-around 180 seconds. That's the best you
+      # can do for such drives
+    fi;
+    smartctl -i $i | egrep "(Device Model|Product:)"
   done
 }
 
