@@ -69,27 +69,19 @@ done
 for i in /dev/sd?; do dd if=$i bs=512 count=1 2>&1 | strings | grep -qc GRUB && echo "$i GRUB present in mbr"; done
 
 
-#== MDADM, What it is not...
+# == MDADM, What it is not...
+# MD is *not* a backup system, although some people leverage it's features for rotating off-site backup disks. Raid arrays are all about *uptime*. They will not save you from accidental deletion or other operator errors.  They will not save you if your office burns down.  You need a separate backup system for critical files.
 #
-#MD is *not* a backup system, although some people leverage it's features for rotating off-site backup disks. Raid arrays are all about *uptime*. They will not save you from accidental deletion or other operator errors.  They will not save you if your office burns down.  You need a separate backup system for critical files.
+# == Choosing Drives, it really is this simple...
+# Buy Enterprise drives. They have appropriate error timeouts and work properly with MD right out of the box.
+# Or ... buy Desktop drives with SCTERC support. They have inappropriate default timeouts, but can be set to an appropriate value. Udev or boot script assistance is needed to call smartctl to set it. They do *not* work properly with MD out of the box.
+# Or ... suffer with desktop drives without SCTERC support. They cannot be set to appropriate error timeouts. Udev or boot script assistance is needed to set a 120 second driver timeout in sysfs. They do *not* work properly with MD out of the box.
+# Or... lose your data during spare rebuild after your first URE. (Odds in proportion to array size.)
 #
-#
-#== Choosing Drives, it really is this simple...
-#
-#Buy Enterprise drives. They have appropriate error timeouts and work properly with MD right out of the box.
-#
-#Or ... buy Desktop drives with SCTERC support. They have inappropriate default timeouts, but can be set to an appropriate value. Udev or boot script assistance is needed to call smartctl to set it. They do *not* work properly with MD out of the box.
-#
-#Or ... suffer with desktop drives without SCTERC support. They cannot be set to appropriate error timeouts. Udev or boot script assistance is needed to set a 120 second driver timeout in sysfs. They do *not* work properly with MD out of the box.
-#
-#Or... lose your data during spare rebuild after your first URE. (Odds in proportion to array size.)
-#
-#Phil Turmel, 2013-01-13 22:13:44
-#http://marc.info/?l=linux-raid&m=135811522817345&w=1
+# Phil Turmel, 2013-01-13 22:13:44
+# http://marc.info/?l=linux-raid&m=135811522817345&w=1
 
-
-
-# improve small caches
+# improve disk behaviour
 function tweak_disk_scheduler () {
   echo "  Setting ideal kernel scheduler by drive type"
   local i
@@ -103,7 +95,6 @@ function tweak_disk_scheduler () {
     fi
   done
 }
-
 
 # Tune timeouts...
 # Phil Turmel, Wed, 4 Nov 2015 08:13:06 -0
@@ -126,7 +117,8 @@ function tweak_timeouts() {
   done
 }
 
-# for an md, use a multiple of the disk ra. ideally about 4 times. cater to 4k drives
+# for an md, use a multiple of the disk ra. ideally about 4 times. 
+# cater to 4k drives with reasonable defaults
 function tweak_read_ahead () {
   echo "  Setting disk and md block read ahead size for consistency..."
   local i
