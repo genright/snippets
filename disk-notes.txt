@@ -82,6 +82,7 @@ for i in /dev/sd?; do dd if=$i bs=512 count=1 2>&1 | strings | grep -qc GRUB && 
 # http://marc.info/?l=linux-raid&m=135811522817345&w=1
 
 # improve disk behaviour
+# SSDs do better when not micromanaged :)
 function tweak_disk_scheduler () {
   echo "  Setting ideal kernel scheduler by drive type"
   local i
@@ -130,12 +131,12 @@ function tweak_read_ahead () {
   local i
   for i in /dev/sd?; do
     echo -n "  - $i was $(blockdev --getra $i), now "
-    blockdev --setra 4096 $i
+    blockdev --setra 1024 $i
     blockdev --getra $i
   done
   for i in /dev/md?; do
     echo -n "  - $i was $(blockdev --getra $i), now "
-    blockdev --setra 16384 $i
+    blockdev --setra 4096 $i
     blockdev --getra $i
   done
 }
