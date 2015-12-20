@@ -86,11 +86,17 @@ function tweak_disk_scheduler () {
   echo "  Setting ideal kernel scheduler by drive type"
   local i
   for i in /dev/sd?; do
+    if [ -d /sys/block/${i##*/}/mq ]; then
+      # ref https://bugzilla.novell.com/show_bug.cgi?id=911337
+      # ref https://lwn.net/Articles/552904/
+      echo "  - ${i##*/} using block-mq layer, not changing scheduler"
+      continue
+    fi
     if [ "$(smartctl -d ata -a $i | grep -c 'SSD')" -ne "0" ]; then
-      echo "  - ${i##*/} seems to be an ssd, using deadline"
+      echo "  - ${i##*/} seems to be an ssd, using deadline (was $(cat /sys/block/${i##*/}/queue/scheduler))"
       echo deadline > /sys/block/${i##*/}/queue/scheduler
     else
-      echo "  - ${i##*/} is probably a spindle drive, defaulting to cfq"
+      echo "  - ${i##*/} is probably a spindle drive, defaulting to cfq (was $(cat /sys/block/${i##*/}/queue/scheduler))"
       echo cfq > /sys/block/${i##*/}/queue/scheduler
     fi
   done
