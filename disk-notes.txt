@@ -35,8 +35,21 @@ echo 1 > /sys/block/$DISK/device/delete
 
 # may also use this to spin a drive down.
 echo offline > /sys/block/$DISK/device/state
- 
 
+
+# interupt a sync
+# Neil Brown, linux-raid, Dec 21st 21015 
+{
+  md_dev="/dev/md1"  
+  # Firstly stop the resync with:
+  echo frozen > /sys/block/${md_dev}/md/sync_action 
+  # Then mark the resync as complete with
+  echo none > /sys/block/${md_dev}/md/resync_start
+  # then re-enable sync with
+  echo idle > /sys/block/${md_dev}/md/sync_action
+}
+
+  
 # scan a drive for bad sectors and try to fix them? ymmv
 # http://serverfault.com/questions/461203/how-to-use-hdparm-to-fix-a-pending-sector/641135#641135
 {
