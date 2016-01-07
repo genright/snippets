@@ -38,7 +38,7 @@ echo offline > /sys/block/$DISK/device/state
 
 
 # interupt a sync
-# Neil Brown, linux-raid, Dec 21st 21015 
+# Neil Brown, linux-raid, Dec 21st 2015 
 {
   md_dev="/dev/md1"  
   # Firstly stop the resync with:
