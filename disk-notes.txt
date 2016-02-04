@@ -182,12 +182,6 @@ function tweak_raid6 () {
 }
 
 
-#set read ahead for all sata and md devices to match
-xm sched-credit -d0 -w512
-for i in /dev/md? /dev/sd?; do blockdev --setra 4096 $i; done
-for i in /dev/md? /dev/sd?; do blockdev --getra $i; done
-
-
 # speed test 
 echo 3 > /proc/sys/vm/drop_caches; for i in 1 2 3 4 5; do dd if=/dev/zero of=speedtest bs=1M count=1024 conv=fsync; done 2>&1 | awk '/copied/ {sum+=$8} END {print "average = "sum/5}'
 
