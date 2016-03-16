@@ -8,7 +8,7 @@ for i in /dev/sd?; do echo "$i "; smartctl -d ata -a  $i | egrep "Serial N|Capac
 for i in $(ls -a /dev/sd?); do 
   ata=$(basename $i)
   echo "drive ${ata} maps to $(readlink /sys/block/${ata})"
-  smartctl -d ata -a $i | egrep 'Serial|Capacity|Model' || echo;
+  smartctl -a $i | egrep 'Serial|Capacity|Model' || echo;
   echo
 done
 }
