@@ -16,6 +16,7 @@ done
 
 # rescan scsi bus for hotswap especially
 # dont forget to unmount swap before pulling a drive
+# the three echo'd items are channel, target, and lun. '-' translates as a wildcard.
 {
  for H in /sys/class/scsi_host/*; do
     echo -n "rescanning $H... " && echo "- - -" > $H/scan && echo "OK" || echo "FAILED"
