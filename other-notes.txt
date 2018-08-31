@@ -20,3 +20,10 @@ service ipmi stop
 # sed pattern to comment a line
 sed -e '/matchtext/ s/^#*/#/' -i $file
 
+
+# reset usb ports (thanks Steven)
+for i in /sys/bus/pci/drivers/[uoex]hci_hcd/*:*; do
+  [ -e "$i" ] || continue
+  echo "${i##*/}" > "${i%/*}/unbind"
+  echo "${i##*/}" > "${i%/*}/bind"
+done
