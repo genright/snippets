@@ -20,6 +20,8 @@ service ipmi stop
 # sed pattern to comment a line
 sed -e '/matchtext/ s/^#*/#/' -i $file
 
+# remove all the stuff from large folders
+cd $folder; perl -e 'for(<*>){((stat)[9]<(unlink))}'
 
 # reset usb ports (thanks Steven)
 for i in /sys/bus/pci/drivers/[uoex]hci_hcd/*:*; do
