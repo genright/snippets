@@ -21,7 +21,17 @@ done
  for H in /sys/class/scsi_host/*; do
     echo -n "rescanning $H... " && echo "- - -" > $H/scan && echo "OK" || echo "FAILED"
  done
-} 
+}
+
+# rescan nvme bus
+{
+#First take note of the device, eg:
+lspci -nnk 
+# probe
+echo '0000:82:00.0' > /sys/bus/pci/drivers_probe
+# check the driver again with:
+lspci -nnk -s '0000:82:00.0'
+}
 
 # disable ncq, may help performance in some cases
 # https://ata.wiki.kernel.org/index.php/Libata_FAQ#Enabling.2C_disabling_and_checking_NCQ
