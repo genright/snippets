@@ -1,0 +1,159 @@
+This file includes some shell snippets that might be handy when working with inputs and longer scripts
+
+# utility functions that help show location of issues
+function get_stack () {
+  local frame=0 LINE SUB FILE
+  echo   "--------- process dump --------------"
+  while read -r LINE SUB FILE < <(caller "$frame"); do
+    echo " LVL:${BASH_SUBSHELL}:${frame} in file ${FILE}:${LINE} running ${SUB}"
+    ((frame++))
+  done
+  echo   "--------- finish dump ---------------"
+  return 0
+}
+declare -xrf get_stack
+
+function error_exit() {
+  echo "! ${0##*/} exit: ${1:-'Unknown Error'}" 1>&2
+  [ "${DEBUG_MYSCRIPT}" = 'true' ] && get_stack
+  exit 1
+}
+declare -xrf error_exit
+
+
+# Expand escaped characters, wrap at 70 chars on spaces, indent wrapped lines
+msg_log()  { echo -e "$(date +%T) ${0##*/}: $1" | fold -w70 -s | sed '2~1s/^/  /' >&2; }
+# folded txt is nasty to parse, dont do that on the console (helps automation?)
+msg_con()  { [ "${DEBUG_MYSCRIPT}" = "true" ] && msg_log "$1" || echo -e "$1" | sed '2~1s/^/  /'; }
+msg_error_exit() { msg_con "$1" && exit 1; }
+DEFAULT_DEBUG_LOG="$(mktemp /var/log/${0##*/}.log.XXXXXX)"
+DEBUG_LOG=${DEBUG_LOG:-$DEFAULT_DEBUG_LOG}
+if [ ! -w ${DEBUG_LOG} ]; then
+  msg_con "Log ${DEBUG_LOG} is not writable, trying to use a safe default"
+  DEBUG_LOG=$(mktemp --suffix="${0##*/}.log") # if this is broken, you have bigger issues
+fi
+[ -f ${DEBUG_LOG} ] >${DEBUG_LOG}  # our own real file! keep it tidy
+# copy stdout and stderr to log and console always
+exec >  >(tee -a ${DEBUG_LOG})
+exec 2> >(tee -a ${DEBUG_LOG} >&2)
+# ref thanks to http://www.goodmami.org/2011/07/simple-logging-in-bash-scripts/
+# NB exec may not be suitable in some restricted shells such as busybox.eg
+# mkfifo and fork method at http://stackoverflow.com/a/5200754
+
+
+# example boilerplate inside function library to prevent double-loading
+testval="${LOADED_LIB_MYLIB-}"
+[ -n "$testval" ] && return 0
+declare -xr LOADED_LIB_MYLIB="true"
+
+
+# checks if a string value is a bare positive integer
+# returns 0 if yes
+function is_plus_int() {
+  [[ $1 =~ ^[0-9]+$ && ${1} -gt 0 ]]
+  return $?
+}
+declare -xrf is_plus_int
+
+
+=============================================
+
+# make sure env is clean, in case of mad stuff eg this gets called recursively
+unset HELP ACTION
+
+declare -x DEBUG_WORLD=${DEBUG_WORLD:-false}
+declare -x DEBUG_MYSCRIPT=${DEBUG_MYSCRIPT:-$DEBUG_WORLD}
+
+# define any globals
+
+# load libraries as needed
+
+# load overrides or optional conf files
+
+# alternative to getopts
+PROGNAME=${0##*/}   # for formated messages, better than using basename
+###
+# Function: usage
+# Short description of command with most commonly usaged options
+#
+function myscript_usage() {
+  echo "
+Summary goes here
+Copyright blah
+
+  Example usage: $PROGNAME action [options]
+
+  Required calling options:
+    myaction [--setableoption xyz --bareoption]
+    ...
+    
+  Optional calling options include:
+    ...
+
+  Run \"$PROGNAME help <action>\" for details on each action from the list above
+
+  Actions are parsed in order, if you enter multiple actions, only the last
+  one will apply (ie weirdness may happen).
+  " 1>&2
+}
+declare -xrf myscript_usage
+
+# see also http://unix.stackexchange.com/questions/214079/differentiating-between-running-and-being-sourced-in-a-bash-shell-script
+# $0='-bash' when sourcing file (not filename)
+if [ "$(basename -- "$0")" != "$(basename -- "${BASH_SOURCE}")" ]; then
+  echo "! Dont source this script, run it directly instead." >&2
+  exit 0
+fi
+
+# parse actions and options into our env, report usage helpfully
+num_args="$#"
+while [ -n "$1" ]; do
+  case "$1" in
+    -h|help|-help|--help|?|-?|--?)
+      # better to keep towards the start of this case, easier to find and
+      # setting this may help reduce other parsing efforts
+      mysqcript_usage
+      HELP=true  # flag value
+    ;;
+    myaction)
+      ACTION="dothisthing"
+      if [ -n "$HELP" ]; then
+        echo "  $ACTION [--myoption xyz]
+      Carrry out action... blah blah blah 
+        "; exit 0
+      fi
+    ;;
+    --setableoption)
+      shift
+      [ -z "$1" ] && error_exit "Missing argument for --setableoption"
+      SETABLEVAR="$1"
+    ;;
+    --bareoption)
+      SOMEVAR="true"
+    ;;
+# parse any other options and actions here
+    *)
+      myscript_usage
+      error_exit "unknown parameter ${1}"
+    ;;
+  esac
+  shift
+done
+
+# catchall for help text
+[ -n "$HELP" ] && error_exit "No help text defined yet for this action $ACTION"
+[ -z "$ACTION" ] && myscript_usage && exit 1
+
+# sanity checks and any other conditions that need to be tested here
+
+# run the requested action
+case "$ACTION" in
+  dothisthing)
+    showmestars 
+  ;;
+# insert further actions
+  *)
+    error_exit "Bad action '$ACTION'. Exiting."
+  ;;
+esac
+# EOF
