@@ -29,3 +29,21 @@ for i in /sys/bus/pci/drivers/[uoex]hci_hcd/*:*; do
   echo "${i##*/}" > "${i%/*}/unbind"
   echo "${i##*/}" > "${i%/*}/bind"
 done
+
+
+# on a xen host, use vcpu time to estimate overall host cpu load
+numcpu=12
+windowsec=300
+now=0
+start=$(xentop -i1 --batch | tail -n+2 | awk '{sum+=$3} END {print sum}')
+echo "$(date +%T): starting loop"
+while true; do
+  sleep $windowsec
+  now=$(xentop -i1 --batch | tail -n+2 | awk '{sum+=$3} END {print sum}')
+  diff=$((now-start))
+  usage=$(echo "scale=1; $diff / $windowsec" | bc)
+  dom0load=$(awk '{print $2}' /proc/loadavg)
+  echo "$(date +%T): ${diff}s cpu time over ${windowsec}s, approx ${usage} / ${numcpu} cores, dom0 load ${dom0load}"
+  start=$now
+done
+
